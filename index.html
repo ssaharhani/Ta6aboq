@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لعبة الأشكال</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #060612;
+    --surface: #0e0e24;
+    --surface2: #16163a;
+    --border: #2a2a55;
+    --border-bright: #3a3a77;
+    --accent: #5b8dee;
+    --accent2: #9b6dff;
+    --correct: #34d399;
+    --wrong: #f87171;
+    --warn: #fbbf24;
+    --text: #e8e8ff;
+    --text-muted: #7070aa;
+    --glow: rgba(91, 141, 238, 0.25);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Tajawal', sans-serif;
+    overflow: hidden;
+  }
+
+  /* animated star background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 55% 15%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 75% 45%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 80%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 20% 85%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 65% 90%, rgba(255,255,255,0.2) 0%, transparent 100%),
+      radial-gradient(2px 2px at 45% 40%, rgba(91,141,238,0.4) 0%, transparent 100%),
+      radial-gradient(2px 2px at 80% 20%, rgba(155,109,255,0.3) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #app {
+    position: relative;
+    z-index: 1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 16px;
+    gap: 10px;
+  }
+
+  /* ───── HUD ───── */
+  #hud {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 620px;
+  }
+
+  .hud-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+    white-space: nowrap;
+  }
+  .hud-pill strong {
+    display: block;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.1;
+  }
+
+  #timer-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+  }
+  #timer-label {
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+    transition: color 0.3s;
+    min-width: 28px;
+    text-align: center;
+  }
+  #timer-track {
+    width: 100%;
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 99px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  #timer-bar {
+    height: 100%;
+    width: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    transform-origin: right;
+    transition: width 0.08s linear, background 0.4s;
+  }
+
+  /* ───── TOP GRID ───── */
+  #top-section {
+    width: 100%;
+    max-width: 620px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 14px;
+    position: relative;
+  }
+  #top-section::before {
+    content: 'اختر الشكل المتطابق';
+    position: absolute;
+    top: -11px;
+    right: 24px;
+    background: var(--bg);
+    padding: 0 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  #top-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .top-cell {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    aspect-ratio: 1.5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.3s, background 0.3s, box-shadow 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .top-cell.match-highlight {
+    border-color: var(--correct);
+    background: rgba(52, 211, 153, 0.08);
+    box-shadow: 0 0 16px rgba(52, 211, 153, 0.2);
+    animation: pulse-green 0.4s ease;
+  }
+  .top-cell svg { width: 42px; height: 42px; }
+
+  @keyframes pulse-green {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+  }
+
+  /* ───── FEEDBACK ───── */
+  #feedback-row {
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #feedback {
+    font-size: 16px;
+    font-weight: 700;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  #feedback.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  #feedback.correct-msg { color: var(--correct); }
+  #feedback.wrong-msg { color: var(--wrong); }
+  #feedback.timeout-msg { color: var(--warn); }
+
+  /* ───── CHOICE BUTTONS ───── */
+  #bottom-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    width: 100%;
+    max-width: 620px;
+  }
+
+  .choice-btn {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.2s;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: 'Tajawal', sans-serif;
+    font-weight: 600;
+    position: relative;
+    overflow: hidden;
+  }
+  .choice-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(91,141,238,0);
+    transition: background 0.15s;
+    border-radius: 14px;
+  }
+  .choice-btn:hover:not(.disabled) {
+    border-color: var(--accent);
+    background: rgba(91,141,238,0.08);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(91,141,238,0.15);
+  }
+  .choice-btn:active:not(.disabled) { transform: scale(0.95); }
+  .choice-btn svg { width: 40px; height: 40px; }
+
+  .choice-btn.correct {
+    background: rgba(52, 211, 153, 0.1);
+    border-color: var(--correct);
+    box-shadow: 0 0 20px rgba(52, 211, 153, 0.2);
+    color: var(--correct);
+    animation: pop 0.3s ease;
+  }
+  .choice-btn.wrong {
+    background: rgba(248, 113, 113, 0.1);
+    border-color: var(--wrong);
+    color: var(--wrong);
+    animation: shake 0.3s ease;
+  }
+  .choice-btn.disabled { pointer-events: none; }
+
+  @keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+
+  /* ───── PROGRESS DOTS ───── */
+  #progress-dots {
+    display: flex;
+    gap: 6px;
+    direction: ltr;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.3s, transform 0.2s;
+  }
+  .dot.done-correct { background: var(--correct); transform: scale(1.2); }
+  .dot.done-wrong { background: var(--wrong); }
+  .dot.done-timeout { background: var(--warn); }
+  .dot.current { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+  /* ───── OVERLAY ───── */
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(6,6,18,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    z-index: 200;
+    backdrop-filter: blur(6px);
+  }
+  #overlay.hidden { display: none; }
+
+  .overlay-card {
+    background: var(--surface);
+    border: 1px solid var(--border-bright);
+    border-radius: 24px;
+    padding: 40px 48px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 0 60px rgba(91,141,238,0.12), 0 0 120px rgba(155,109,255,0.08);
+    animation: card-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes card-in {
+    from { opacity: 0; transform: scale(0.85) translateY(20px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .game-logo {
+    font-size: 40px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+  }
+
+  .overlay-title {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .overlay-sub {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    max-width: 280px;
+  }
+
+  .big-score {
+    font-size: 72px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--correct), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+  }
+  .score-label {
+    font-size: 15px;
+    color: var(--text-muted);
+  }
+
+  .result-msg {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    padding: 10px 20px;
+    background: var(--surface2);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 14px 48px;
+    font-size: 17px;
+    font-weight: 800;
+    font-family: 'Tajawal', sans-serif;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px rgba(91,141,238,0.35);
+    margin-top: 6px;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(91,141,238,0.45); }
+  .btn-primary:active { transform: scale(0.97); }
+
+  .rules-list {
+    text-align: right;
+    direction: rtl;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+  .rule-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .rule-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="hud">
+    <div class="hud-pill">السؤال <strong id="q-num">1</strong></div>
+    <div id="timer-wrap">
+      <div id="timer-label">5</div>
+      <div id="timer-track"><div id="timer-bar"></div></div>
+    </div>
+    <div class="hud-pill">النقاط <strong id="score">0</strong></div>
+  </div>
+
+  <div id="progress-dots">
+    <div class="dot" id="dot0"></div><div class="dot" id="dot1"></div>
+    <div class="dot" id="dot2"></div><div class="dot" id="dot3"></div>
+    <div class="dot" id="dot4"></div><div class="dot" id="dot5"></div>
+    <div class="dot" id="dot6"></div><div class="dot" id="dot7"></div>
+    <div class="dot" id="dot8"></div><div class="dot" id="dot9"></div>
+  </div>
+
+  <div id="top-section">
+    <div id="top-grid">
+      <div class="top-cell" id="c0"></div>
+      <div class="top-cell" id="c1"></div>
+      <div class="top-cell" id="c2"></div>
+      <div class="top-cell" id="c3"></div>
+      <div class="top-cell" id="c4"></div>
+      <div class="top-cell" id="c5"></div>
+      <div class="top-cell" id="c6"></div>
+      <div class="top-cell" id="c7"></div>
+      <div class="top-cell" id="c8"></div>
+    </div>
+  </div>
+
+  <div id="feedback-row"><div id="feedback"></div></div>
+
+  <div id="bottom-grid">
+    <button class="choice-btn" id="b0"></button>
+    <button class="choice-btn" id="b1"></button>
+    <button class="choice-btn" id="b2"></button>
+    <button class="choice-btn" id="b3"></button>
+  </div>
+</div>
+
+<!-- OVERLAY -->
+<div id="overlay">
+  <div class="overlay-card" id="overlay-card">
+    <div class="game-logo">◆ ● ▲</div>
+    <div class="overlay-title">لعبة الأشكال</div>
+    <div class="rules-list">
+      <div class="rule-item"><div class="rule-icon">9</div>9 أشكال في المستطيل الأعلى</div>
+      <div class="rule-item"><div class="rule-icon">4</div>4 خيارات في الأسفل</div>
+      <div class="rule-item"><div class="rule-icon">⏱</div>5 ثواني لكل سؤال</div>
+      <div class="rule-item"><div class="rule-icon">✓</div>اضغط الشكل المتطابق لتكسب نقطة</div>
+      <div class="rule-item"><div class="rule-icon">🏆</div>10 أسئلة في الجولة</div>
+    </div>
+    <button class="btn-primary" id="start-btn">ابدأ اللعبة ▶</button>
+  </div>
+</div>
+
+<script>
+  // ───────────────────────────── DATA
+  const SHAPES = [
+    {
+      name: 'مثلث',
+      svg: (c) => `<svg viewBox="0 0 44 44"><polygon points="22,4 41,40 3,40" fill="${c}" stroke="${c}" stroke-linejoin="round" stroke-width="1"/></svg>`
+    },
+    {
+      name: 'دائرة',
+      svg: (c) => `<svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" fill="${c}"/></svg>`
+    },
+    {
+      name: 'مربع',
+      svg: (c) => `<svg viewBox="0 0 44 44"><rect x="5" y="5" width="34" height="34" rx="3" fill="${c}"/></svg>`
+    },
+    {
+      name: 'خماسي',
+      svg: (c) => `<svg viewBox="0 0 44 44"><polygon points="22,3 41,16 34,38 10,38 3,16" fill="${c}"/></svg>`
+    },
+    {
+      name: 'نجمة',
+      svg: (c) => `<svg viewBox="0 0 44 44"><polygon points="22,2 27,16 42,16 30,26 34,41 22,32 10,41 14,26 2,16 17,16" fill="${c}"/></svg>`
+    },
+    {
+      name: 'معين',
+      svg: (c) => `<svg viewBox="0 0 44 44"><polygon points="22,2 42,22 22,42 2,22" fill="${c}"/></svg>`
+    },
+    {
+      name: 'مستطيل',
+      svg: (c) => `<svg viewBox="0 0 44 44"><rect x="3" y="11" width="38" height="22" rx="3" fill="${c}"/></svg>`
+    },
+    {
+      name: 'سداسي',
+      svg: (c) => `<svg viewBox="0 0 44 44"><polygon points="22,2 40,12 40,32 22,42 4,32 4,12" fill="${c}"/></svg>`
+    },
+    {
+      name: 'قلب',
+      svg: (c) => `<svg viewBox="0 0 44 44"><path d="M22 38 C22 38 4 26 4 16 C4 9 9 5 15 5 C18.5 5 21 7 22 9 C23 7 25.5 5 29 5 C35 5 40 9 40 16 C40 26 22 38 22 38Z" fill="${c}"/></svg>`
+    },
+    {
+      name: 'سهم',
+      svg: (c) => `<svg viewBox="0 0 44 44"><polygon points="44,22 28,6 28,16 0,16 0,28 28,28 28,38" fill="${c}"/></svg>`
+    },
+    {
+      name: 'هلال',
+      svg: (c) => `<svg viewBox="0 0 44 44"><path d="M22 5 A17 17 0 1 1 22 39 A11 11 0 1 0 22 5Z" fill="${c}"/></svg>`
+    },
+    {
+      name: 'زائد',
+      svg: (c) => `<svg viewBox="0 0 44 44"><polygon points="16,4 28,4 28,16 40,16 40,28 28,28 28,40 16,40 16,28 4,28 4,16 16,16" fill="${c}"/></svg>`
+    }
+  ];
+
+  const PALETTE_DIM = [
+    '#2a3a6a','#3a2a4a','#2a4a3a','#4a3a1a',
+    '#3a2a5a','#4a2a2a','#2a3a4a','#3a3a1a',
+    '#2a4a4a'
+  ];
+
+  const PALETTE_BRIGHT = [
+    '#5b8dee','#c084fc','#34d399','#fbbf24',
+    '#f472b6','#fb923c','#38bdf8','#a3e635'
+  ];
+
+  // ───────────────────────────── STATE
+  let score = 0, qNum = 0;
+  let timerInterval = null, timerSecs = 0;
+  let answered = false;
+  let topShapes = [];
+  let correctTopIdx = -1, correctChoiceIdx = -1;
+  let results = []; // 'correct','wrong','timeout'
+
+  // ───────────────────────────── HELPERS
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // ───────────────────────────── TIMER
+  function startTimer() {
+    timerSecs = 5;
+    updateTimerUI(5, 5);
+    timerInterval = setInterval(() => {
+      timerSecs -= 0.05;
+      updateTimerUI(timerSecs, 5);
+      if (timerSecs <= 0 && !answered) {
+        clearInterval(timerInterval);
+        answered = true;
+        onTimeout();
+      }
+    }, 50);
+  }
+
+  function updateTimerUI(val, max) {
+    const pct = Math.max(0, val / max * 100);
+    document.getElementById('timer-bar').style.width = pct + '%';
+    const secs = Math.ceil(Math.max(0, val));
+    document.getElementById('timer-label').textContent = secs;
+    const label = document.getElementById('timer-label');
+    if (val > 3) { label.style.color = '#5b8dee'; document.getElementById('timer-bar').style.background = 'linear-gradient(90deg, #9b6dff, #5b8dee)'; }
+    else if (val > 1.5) { label.style.color = '#fbbf24'; document.getElementById('timer-bar').style.background = 'linear-gradient(90deg, #fbbf24, #f97316)'; }
+    else { label.style.color = '#f87171'; document.getElementById('timer-bar').style.background = '#f87171'; }
+  }
+
+  // ───────────────────────────── DOTS
+  function updateDots() {
+    for (let i = 0; i < 10; i++) {
+      const dot = document.getElementById('dot' + i);
+      dot.className = 'dot';
+      if (i < results.length) {
+        dot.classList.add('done-' + results[i]);
+      } else if (i === qNum) {
+        dot.classList.add('current');
+      }
+    }
+  }
+
+  // ───────────────────────────── QUESTION
+  function newQuestion() {
+    answered = false;
+    clearInterval(timerInterval);
+    document.getElementById('feedback').className = '';
+    document.getElementById('feedback').textContent = '';
+
+    for (let i = 0; i < 9; i++) document.getElementById('c' + i).className = 'top-cell';
+    for (let i = 0; i < 4; i++) {
+      const b = document.getElementById('b' + i);
+      b.className = 'choice-btn';
+      b.innerHTML = '';
+    }
+
+    document.getElementById('q-num').textContent = qNum + 1;
+    updateDots();
+
+    const allShapes = shuffle(SHAPES);
+    topShapes = allShapes.slice(0, 9);
+
+    for (let i = 0; i < 9; i++) {
+      document.getElementById('c' + i).innerHTML = topShapes[i].svg(PALETTE_DIM[i]);
+    }
+
+    // pick one top shape as the correct match
+    correctTopIdx = Math.floor(Math.random() * 9);
+    const correctShape = topShapes[correctTopIdx];
+
+    // build 3 wrong choices from shapes NOT in top-9
+    const notInTop = SHAPES.filter(s => !topShapes.includes(s));
+    const wrongChoices = shuffle(notInTop).slice(0, 3);
+    const allChoices = shuffle([correctShape, ...wrongChoices]);
+    correctChoiceIdx = allChoices.indexOf(correctShape);
+
+    for (let i = 0; i < 4; i++) {
+      const btn = document.getElementById('b' + i);
+      btn.innerHTML = allChoices[i].svg(PALETTE_BRIGHT[i]) +
+        `<span>${allChoices[i].name}</span>`;
+      btn.onclick = () => handleChoice(i);
+    }
+
+    startTimer();
+  }
+
+  // ───────────────────────────── INTERACTIONS
+  function handleChoice(idx) {
+    if (answered) return;
+    answered = true;
+    clearInterval(timerInterval);
+
+    const btn = document.getElementById('b' + idx);
+
+    if (idx === correctChoiceIdx) {
+      score++;
+      document.getElementById('score').textContent = score;
+      btn.classList.add('correct');
+      document.getElementById('c' + correctTopIdx).classList.add('match-highlight');
+      showFeedback('correct', '✓ أحسنت! نقطة لك!');
+      results.push('correct');
+    } else {
+      btn.classList.add('wrong');
+      document.getElementById('b' + correctChoiceIdx).classList.add('correct');
+      document.getElementById('c' + correctTopIdx).classList.add('match-highlight');
+      showFeedback('wrong', '✗ خطأ — الصحيح ظهر باللون الأخضر');
+      results.push('wrong');
+    }
+
+    disableButtons();
+    updateDots();
+    setTimeout(nextOrEnd, 1200);
+  }
+
+  function onTimeout() {
+    document.getElementById('b' + correctChoiceIdx).classList.add('correct');
+    document.getElementById('c' + correctTopIdx).classList.add('match-highlight');
+    showFeedback('timeout', '⏱ انتهى الوقت!');
+    results.push('timeout');
+    disableButtons();
+    updateDots();
+    setTimeout(nextOrEnd, 1200);
+  }
+
+  function disableButtons() {
+    for (let i = 0; i < 4; i++) document.getElementById('b' + i).classList.add('disabled');
+  }
+
+  function showFeedback(type, msg) {
+    const el = document.getElementById('feedback');
+    el.textContent = msg;
+    el.className = type + '-msg show';
+  }
+
+  function nextOrEnd() {
+    qNum++;
+    if (qNum >= 10) showEndScreen();
+    else newQuestion();
+  }
+
+  // ───────────────────────────── SCREENS
+  function showEndScreen() {
+    clearInterval(timerInterval);
+    const correctCount = results.filter(r => r === 'correct').length;
+    let emoji, message;
+    if (correctCount === 10) { emoji = '🏆'; message = 'مثالي! أنت بطل الأشكال!'; }
+    else if (correctCount >= 8) { emoji = '🌟'; message = 'ممتاز جداً! أداء رائع!'; }
+    else if (correctCount >= 6) { emoji = '👍'; message = 'كويس! يمكن تحسين النتيجة!'; }
+    else if (correctCount >= 4) { emoji = '💪'; message = 'تمرّن أكثر وستتحسن!'; }
+    else { emoji = '🔄'; message = 'حاول مجدداً، ستكون أفضل!'; }
+
+    document.getElementById('overlay-card').innerHTML = `
+      <div style="font-size:52px; line-height:1;">${emoji}</div>
+      <div class="overlay-title">انتهت الجولة!</div>
+      <div class="big-score">${correctCount}<span style="font-size:32px;font-weight:500;opacity:0.5">/10</span></div>
+      <div class="score-label">نقطة من أصل 10</div>
+      <div class="result-msg">${message}</div>
+      <button class="btn-primary" id="restart-btn">العب مجدداً ↺</button>
+    `;
+    document.getElementById('overlay').classList.remove('hidden');
+    document.getElementById('restart-btn').onclick = startGame;
+  }
+
+  function startGame() {
+    score = 0; qNum = 0; results = [];
+    document.getElementById('score').textContent = '0';
+    document.getElementById('overlay').classList.add('hidden');
+    updateDots();
+    newQuestion();
+  }
+
+  document.getElementById('start-btn').onclick = startGame;
+</script>
+</body>
+</html>
